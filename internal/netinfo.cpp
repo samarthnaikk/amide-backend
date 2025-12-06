@@ -25,6 +25,11 @@ struct LogEntry {
     int sport;
     std::string dst;
     int dport;
+    int packetSize;
+    int flags;
+    uint32_t seq;
+    uint32_t ack;
+    int window;
 };
 
 std::string nowString() {
@@ -86,12 +91,12 @@ int main() {
         packet = pcap_next(handle, &header);
         auto now = std::chrono::steady_clock::now();
 
-        if (packet == nullptr) {
+        if (packet == nullptr)
             continue;
-        }
 
         struct ip* ip_hdr = (struct ip*)(packet + 14);
-        if (ip_hdr->ip_p != IPPROTO_TCP) continue;
+        if (ip_hdr->ip_p != IPPROTO_TCP)
+            continue;
 
         struct tcphdr* tcp_hdr =
             (struct tcphdr*)(packet + 14 + ip_hdr->ip_hl * 4);
@@ -105,7 +110,18 @@ int main() {
         std::stringstream ts;
         ts << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S");
 
-        logBuffer.push_back({ts.str(), src, sport, dst, dport});
+        logBuffer.push_back({
+            ts.str(),
+            src,
+            sport,
+            dst,
+            dport,
+            static_cast<int>(header.len),
+            tcp_hdr->th_flags,
+            ntohl(tcp_hdr->th_seq),
+            ntohl(tcp_hdr->th_ack),
+            ntohs(tcp_hdr->th_win)
+        });
 
         auto &s = ipStats[src];
 
@@ -118,7 +134,8 @@ int main() {
 
         s.packetCount++;
         s.ports.insert(dport);
-        if (tcp_hdr->th_flags & TH_SYN) s.connectionAttempts++;
+        if (tcp_hdr->th_flags & TH_SYN)
+            s.connectionAttempts++;
 
         std::cout << "[" << ts.str() << "] "
                   << src << ":" << sport << " -> "
@@ -145,14 +162,19 @@ int main() {
             std::string filename = "logs_" + nowString() + ".csv";
             std::ofstream out(filename);
 
-            out << "timestamp,src_ip,src_port,dst_ip,dst_port\n";
+            out << "timestamp,src_ip,src_port,dst_ip,dst_port,packet_size,tcp_flags,seq,ack,window\n";
 
             for (auto &e : logBuffer) {
                 out << e.timestamp << ","
                     << e.src << ","
                     << e.sport << ","
                     << e.dst << ","
-                    << e.dport << "\n";
+                    << e.dport << ","
+                    << e.packetSize << ","
+                    << e.flags << ","
+                    << e.seq << ","
+                    << e.ack << ","
+                    << e.window << "\n";
             }
 
             out.close();

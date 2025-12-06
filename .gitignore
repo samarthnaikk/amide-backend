@@ -190,3 +190,4 @@ secret-*.json
 .vercel
 
 netinfo
+logs_*
