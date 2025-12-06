@@ -12,6 +12,7 @@ import redis
 import json
 import os
 from supabase import create_client, Client
+from flask_cors import CORS 
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
