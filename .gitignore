@@ -187,3 +187,4 @@ logs/
 secret-*.json
 
 # End of file
+.vercel

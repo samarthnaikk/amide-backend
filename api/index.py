@@ -26,6 +26,14 @@ app = Flask(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({
+        'status': 'ok',
+        'message': 'API is running',
+        'service': 'amide-backend'
+    }), 200
+
 def gmail_service():
     token = os.getenv("GMAIL_TOKEN")
     refresh_token = os.getenv("GMAIL_REFRESH_TOKEN")
