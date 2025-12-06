@@ -11,6 +11,12 @@ from dotenv import load_dotenv
 import redis
 import json
 import os
+from supabase import create_client, Client
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 load_dotenv()
 
@@ -136,11 +142,13 @@ def verify_otp():
         return jsonify({'error': 'Content-Type must be application/json'}), 400
 
     data = request.get_json()
+
     email = data.get("email")
     otp = data.get("otp")
+    password = data.get("password")  # hashed password
 
-    if not email or not otp:
-        return jsonify({"error": "Email and OTP are required"}), 400
+    if not email or not otp or not password:
+        return jsonify({"error": "Email, OTP and password are required"}), 400
 
     key = f"otp:{email}"
     stored_otp = r.get(key)
@@ -161,9 +169,49 @@ def verify_otp():
 
     r.delete(key)
 
+    try:
+        supabase.table("users").insert({
+            "email": email,
+            "password": password
+        }).execute()
+    except Exception as e:
+        return jsonify({
+            "status": "db_error",
+            "verified": True,
+            "message": "OTP verified but failed to create user",
+            "details": str(e)
+        }), 500
+
     return jsonify({
         "status": "verified",
         "verified": True,
-        "message": "OTP verified successfully"
+        "message": "OTP verified and user created"
     }), 200
 
+@app.route('/signin', methods=['POST'])
+def signin():
+    if request.content_type != "application/json":
+        return jsonify({'error': 'Content-Type must be application/json'}), 400
+
+    data = request.get_json()
+    email = data.get("email")
+    password = data.get("password")  # hashed
+
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+
+    try:
+        result = supabase.table("users").select("password").eq("email", email).execute()
+
+        if len(result.data) == 0:
+            return jsonify({"success": False}), 200
+
+        stored_hash = result.data[0]["password"]
+
+        if stored_hash == password:
+            return jsonify({"success": True}), 200
+
+        return jsonify({"success": False}), 200
+
+    except Exception as e:
+        return jsonify({"error": "Database error", "details": str(e)}), 500
