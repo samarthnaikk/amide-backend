@@ -8,6 +8,9 @@
 #include <chrono>
 #include <ctime>
 #include <iomanip>
+#include <fstream>
+#include <vector>
+#include <sstream>
 
 struct Stats {
     int packetCount = 0;
@@ -15,6 +18,21 @@ struct Stats {
     int connectionAttempts = 0;
     std::chrono::steady_clock::time_point lastReset = std::chrono::steady_clock::now();
 };
+
+struct LogEntry {
+    std::string timestamp;
+    std::string src;
+    int sport;
+    std::string dst;
+    int dport;
+};
+
+std::string nowString() {
+    auto t = std::time(nullptr);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&t), "%Y%m%d_%H%M%S");
+    return ss.str();
+}
 
 int main() {
     char errbuf[PCAP_ERRBUF_SIZE];
@@ -32,7 +50,7 @@ int main() {
         if (name == "ap1" || name == "awdl0" || name == "llw0" || name == "p2p0")
             continue;
 
-        for (pcap_addr_t *addr = d->addresses; addr; addr = addr->next) {
+        for (pcap_addr_t* addr = d->addresses; addr; addr = addr->next) {
             if (addr->addr && addr->addr->sa_family == AF_INET) {
                 chosen = d;
                 break;
@@ -57,24 +75,39 @@ int main() {
 
     pcap_freealldevs(alldevs);
 
+    std::unordered_map<std::string, Stats> ipStats;
     struct pcap_pkthdr header;
     const u_char *packet;
-    std::unordered_map<std::string, Stats> ipStats;
 
-    while ((packet = pcap_next(handle, &header)) != nullptr) {
-        struct ip *ip_hdr = (struct ip *)(packet + 14);
+    std::vector<LogEntry> logBuffer;
+    auto minuteStart = std::chrono::steady_clock::now();
+
+    while (true) {
+        packet = pcap_next(handle, &header);
+        auto now = std::chrono::steady_clock::now();
+
+        if (packet == nullptr) {
+            continue;
+        }
+
+        struct ip* ip_hdr = (struct ip*)(packet + 14);
         if (ip_hdr->ip_p != IPPROTO_TCP) continue;
 
-        struct tcphdr *tcp_hdr =
-            (struct tcphdr *)(packet + 14 + ip_hdr->ip_hl * 4);
+        struct tcphdr* tcp_hdr =
+            (struct tcphdr*)(packet + 14 + ip_hdr->ip_hl * 4);
 
         std::string src = inet_ntoa(ip_hdr->ip_src);
         std::string dst = inet_ntoa(ip_hdr->ip_dst);
         int sport = ntohs(tcp_hdr->th_sport);
         int dport = ntohs(tcp_hdr->th_dport);
 
+        auto t = std::time(nullptr);
+        std::stringstream ts;
+        ts << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S");
+
+        logBuffer.push_back({ts.str(), src, sport, dst, dport});
+
         auto &s = ipStats[src];
-        auto now = std::chrono::steady_clock::now();
 
         if (std::chrono::duration_cast<std::chrono::seconds>(now - s.lastReset).count() >= 1) {
             s.packetCount = 0;
@@ -87,8 +120,7 @@ int main() {
         s.ports.insert(dport);
         if (tcp_hdr->th_flags & TH_SYN) s.connectionAttempts++;
 
-        auto t = std::time(nullptr);
-        std::cout << "[" << std::put_time(std::localtime(&t), "%H:%M:%S") << "] "
+        std::cout << "[" << ts.str() << "] "
                   << src << ":" << sport << " -> "
                   << dst << ":" << dport << "\n";
 
@@ -108,6 +140,27 @@ int main() {
         }
 
         std::cout << "-----------------------------\n";
+
+        if (std::chrono::duration_cast<std::chrono::seconds>(now - minuteStart).count() >= 60) {
+            std::string filename = "logs_" + nowString() + ".csv";
+            std::ofstream out(filename);
+
+            out << "timestamp,src_ip,src_port,dst_ip,dst_port\n";
+
+            for (auto &e : logBuffer) {
+                out << e.timestamp << ","
+                    << e.src << ","
+                    << e.sport << ","
+                    << e.dst << ","
+                    << e.dport << "\n";
+            }
+
+            out.close();
+            logBuffer.clear();
+            minuteStart = now;
+
+            std::cout << "Saved 1-minute log to " << filename << std::endl;
+        }
     }
 
     pcap_close(handle);
