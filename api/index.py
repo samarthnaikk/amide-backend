@@ -29,6 +29,7 @@ r = redis.Redis(
 )
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
