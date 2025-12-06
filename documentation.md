@@ -1,199 +1,220 @@
 # API Documentation
 
-## Base URL
-`https://amide-backend.vercel.app` or `http://localhost:3000` (local development)
+**Base URL**
+`https://amide-backend.vercel.app` (production)
 
 ---
 
-## Routes
+## Notes (global)
 
-### 1. **GET /** - Health Check
-**Purpose:** Check if the API is running
+* All **POST** endpoints **must** use `Content-Type: application/json`.
+* Passwords must be **hashed client-side** before being sent for signup/verify and signin.
+* OTPs expire after **900 seconds (15 minutes)**.
+* OTP is used **only for signup**. Signin does **not** require OTP.
+* Redis is used to store OTPs (key format: `otp:<email>`).
+* Supabase is used for user storage via the Supabase Python client.
+* All responses are JSON.
 
-**Request Format:**
-```http
+---
+
+## 1) `GET /` — Health check
+
+**Request**
+
+```
 GET /
 ```
 
-**Response:**
+**Response (200)**
+
 ```json
 {
-    "status": "ok",
-    "message": "API is running",
-    "service": "amide-backend"
+  "status": "ok",
+  "message": "API is running",
+  "service": "amide-backend"
 }
 ```
-
-**Status Code:** `200 OK`
 
 ---
 
-### 2. **POST /signup** - Send OTP for Signup
-**Purpose:** Generate and send OTP to user's email for signup verification
+## 2) `POST /signup` — Send OTP for signup
 
-**Request Format:**
-```http
-POST /signup
-Content-Type: application/json
+**Purpose**: Generate a 6-digit OTP and send it to the user's email. If an OTP for the email already exists, returns the remaining TTL.
 
-{
-    "email": "user@example.com"
-}
-```
+**Request body (JSON)**:
 
-**Response (New OTP Sent):**
 ```json
 {
-    "status": "ok",
-    "otpSent": true,
-    "email": "user@example.com"
+  "email": "user@example.com",
+  "password": "user_password"
 }
 ```
 
-**Response (OTP Already Exists):**
+**Responses**
+
+* **New OTP created and email send attempted** — `200 OK`
+
 ```json
 {
-    "status": "exists",
-    "otpSent": false,
-    "timeLeft": 600,
-    "email": "user@example.com"
+  "status": "ok",
+  "otpSent": true,
+  "email": "user@example.com"
 }
 ```
 
-**Response (Error):**
+* **OTP already exists for this email** — `200 OK`
+
 ```json
 {
-    "error": "Email is required"
+  "status": "exists",
+  "otpSent": false,
+  "timeLeft": 600,
+  "email": "user@example.com"
 }
 ```
 
-**Status Codes:**
-- `200 OK` - OTP sent or already exists
-- `400 Bad Request` - Missing email or invalid request format
-- `500 Internal Server Error` - Email sending failed
+* **Bad request (missing email or wrong Content-Type)** — `400 Bad Request`
+
+```json
+{
+  "error": "Email is required"
+}
+```
+
+* **Email send failure** — `500 Internal Server Error`
+
+```json
+{
+  "error": "Failed to send email",
+  "details": "error from Gmail API"
+}
+```
 
 ---
 
-### 3. **POST /verify_otp** - Verify OTP
-**Purpose:** Verify the OTP sent to user's email
+## 3) `POST /verify_otp` — Verify OTP and create user
 
-**Request Format:**
-```http
-POST /verify_otp
-Content-Type: application/json
+**Purpose**: Verify OTP for signup. If OTP is valid, create the user in Supabase `users` table.
 
-{
-    "email": "user@example.com",
-    "otp": "123456",
-    "password": "user password"
-}
-```
+**Required request body (JSON)**:
 
-**Response (Valid OTP):**
 ```json
 {
-    "status": "verified",
-    "verified": true,
-    "message": "OTP verified successfully"
+  "email": "user@example.com",
+  "otp": "123456",
+  "password": "user_password"
 }
 ```
 
-**Response (Invalid OTP):**
+**Responses**
+
+* **OTP verified and user created** — `200 OK`
+
 ```json
 {
-    "status": "invalid",
-    "verified": false,
-    "message": "Invalid OTP"
+  "status": "verified",
+  "verified": true,
+  "message": "OTP verified and user created"
 }
 ```
 
-**Response (Expired/Not Found):**
+* **OTP verified but database insert failed** — `500 Internal Server Error`
+
 ```json
 {
-    "status": "not_found",
-    "verified": false,
-    "message": "OTP does not exist or has expired"
+  "status": "db_error",
+  "verified": true,
+  "message": "OTP verified but failed to create user",
+  "details": "supabase error details"
 }
 ```
 
-**Status Codes:**
-- `200 OK` - OTP verified successfully
-- `400 Bad Request` - Invalid OTP, expired OTP, or missing fields
+* **OTP expired or not found** — `400 Bad Request`
+
+```json
+{
+  "status": "not_found",
+  "verified": false,
+  "message": "OTP does not exist or has expired"
+}
+```
+
+* **OTP incorrect** — `400 Bad Request`
+
+```json
+{
+  "status": "invalid",
+  "verified": false,
+  "message": "Invalid OTP"
+}
+```
+
+* **Missing required fields** — `400 Bad Request`
+
+```json
+{
+  "error": "Email, OTP and password are required"
+}
+```
 
 ---
 
-### 4. **POST /signin** - Sign in with Email and Password
-**Purpose:** Authenticate users using their email and password
+## 4) `POST /signin` — Sign in with email and password
 
-**Request Format:**
-```http
-POST /signin
-Content-Type: application/json
+**Purpose**: Authenticate user by validating hashed password stored in Supabase.
 
-{
-    "email": "user@example.com",
-    "password": "hashed_password"
-}
-```
+**Request body (JSON)**:
 
-**Response (Success):**
 ```json
 {
-    "success": true
+  "email": "user@example.com",
+  "password": "user_password"
 }
 ```
 
-**Response (Failure):**
+**Responses**
+
+* **Success** — `200 OK`
+
 ```json
 {
-    "success": false
+  "success": true
 }
 ```
 
-**Response (Missing Fields):**
+* **Fail (email missing or wrong password)** — `200 OK`
+
 ```json
 {
-    "error": "Email and password are required"
+  "success": false
 }
 ```
 
-**Response (Database Error):**
+* **Missing fields** — `400 Bad Request`
+
 ```json
 {
-    "error": "Database error",
-    "details": "..."
+  "error": "Email and password are required"
 }
 ```
 
-**Status Codes:**
-- `200 OK` - Success or failure
-- `400 Bad Request` - Missing fields
-- `500 Internal Server Error` - Database error
+* **Database error** — `500 Internal Server Error`
+
+```json
+{
+  "error": "Database error",
+  "details": "error details"
+}
+```
 
 ---
 
-## Notes
-
-1. **OTP Expiry:** OTPs expire after 15 minutes (900 seconds)
-2. **Rate Limiting:** Only one OTP per email at a time
-3. **Email Template:** Uses branded HTML template with amide logo
-4. **Content-Type:** All POST requests must use `application/json`
-5. **Redis:** Uses Redis for OTP storage and management
-
-## Error Handling
-
-All routes return JSON responses. Common error formats:
+## Error format (general)
 
 ```json
 {
-    "error": "Error description",
-    "details": "Additional error details (if applicable)"
+  "error": "Error message",
+  "details": "Optional details"
 }
 ```
 
-For invalid Content-Type:
-```json
-{
-    "error": "Content-Type must be application/json"
-}
-```
