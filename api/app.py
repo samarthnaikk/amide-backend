@@ -24,9 +24,20 @@ r = redis.Redis(
 app = Flask(__name__)
 SCOPES = ['https://www.googleapis.com/auth/gmail.send']
 
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
+from dotenv import load_dotenv
+import os, json
+
+load_dotenv()
+
+SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
+
 def gmail_service():
-    """Authenticate and return Gmail API service."""
     creds = None
+
     try:
         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
     except:
@@ -36,13 +47,25 @@ def gmail_service():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file('client_secret.json', SCOPES)
+            client_config = {
+                "installed": {
+                    "client_id": os.getenv("client_id"),
+                    "project_id": os.getenv("project_id"),
+                    "auth_uri": os.getenv("auth_uri"),
+                    "token_uri": os.getenv("token_uri"),
+                    "auth_provider_x509_cert_url": os.getenv("auth_provider_x509_cert_url"),
+                    "client_secret": os.getenv("client_secret"),
+                    "redirect_uris": [os.getenv("redirect_uris")]
+                }
+            }
+
+            flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
             creds = flow.run_local_server(port=0)
 
-        with open("token.json", "w") as token:
-            token.write(creds.to_json())
+            with open("token.json", "w") as token:
+                token.write(creds.to_json())
 
-    return build('gmail', 'v1', credentials=creds)
+    return build("gmail", "v1", credentials=creds)
 
 def send_otp_email(to_email, otp):
     service = gmail_service()
@@ -154,4 +177,5 @@ def verify_otp():
     }), 200
 
 if __name__ == '__main__':
+    gmail_service()
     app.run(host='0.0.0.0', port=5001, debug=True)
