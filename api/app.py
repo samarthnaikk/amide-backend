@@ -8,9 +8,11 @@ from email.mime.text import MIMEText
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
+from dotenv import load_dotenv
+import json
 import redis
 import os
-from dotenv import load_dotenv
 load_dotenv()
 
 r = redis.Redis(
@@ -22,48 +24,35 @@ r = redis.Redis(
 )
 
 app = Flask(__name__)
-SCOPES = ['https://www.googleapis.com/auth/gmail.send']
-
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from google.auth.transport.requests import Request
-from dotenv import load_dotenv
-import os, json
-
 load_dotenv()
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
 def gmail_service():
-    creds = None
+    token = os.getenv("GMAIL_TOKEN")
+    refresh_token = os.getenv("GMAIL_REFRESH_TOKEN")
+    token_uri = os.getenv("GMAIL_TOKEN_URI")
+    client_id = os.getenv("GMAIL_CLIENT_ID")
+    client_secret = os.getenv("GMAIL_CLIENT_SECRET")
+    expiry = os.getenv("GMAIL_EXPIRY")
+    scopes = ["https://www.googleapis.com/auth/gmail.send"]
 
-    try:
-        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
-    except:
-        pass
+    creds_info = {
+        "token": token,
+        "refresh_token": refresh_token,
+        "token_uri": token_uri,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "scopes": scopes
+    }
 
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            client_config = {
-                "installed": {
-                    "client_id": os.getenv("client_id"),
-                    "project_id": os.getenv("project_id"),
-                    "auth_uri": os.getenv("auth_uri"),
-                    "token_uri": os.getenv("token_uri"),
-                    "auth_provider_x509_cert_url": os.getenv("auth_provider_x509_cert_url"),
-                    "client_secret": os.getenv("client_secret"),
-                    "redirect_uris": [os.getenv("redirect_uris")]
-                }
-            }
+    if expiry:
+        creds_info["expiry"] = expiry
 
-            flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-            creds = flow.run_local_server(port=0)
+    creds = Credentials.from_authorized_user_info(creds_info, scopes)
 
-            with open("token.json", "w") as token:
-                token.write(creds.to_json())
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
 
     return build("gmail", "v1", credentials=creds)
 
@@ -177,5 +166,8 @@ def verify_otp():
     }), 200
 
 if __name__ == '__main__':
-    gmail_service()
+    try:
+        gmail_service()
+    except Exception:
+        pass
     app.run(host='0.0.0.0', port=5001, debug=True)
