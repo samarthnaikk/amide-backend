@@ -4,15 +4,14 @@ import base64
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
-from email.mime.text import MIMEText
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 from dotenv import load_dotenv
-import json
 import redis
+import json
 import os
+
 load_dotenv()
 
 r = redis.Redis(
@@ -24,7 +23,6 @@ r = redis.Redis(
 )
 
 app = Flask(__name__)
-load_dotenv()
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
@@ -99,7 +97,6 @@ def signup():
         return jsonify({"error": "Email is required"}), 400
 
     key = f"otp:{email}"
-
     existing_otp = r.get(key)
 
     if existing_otp:
@@ -112,7 +109,6 @@ def signup():
         }), 200
 
     otp = f"{random.randint(0, 999999):06d}"
-
     r.setex(key, 900, otp)
 
     try:
@@ -132,7 +128,6 @@ def verify_otp():
         return jsonify({'error': 'Content-Type must be application/json'}), 400
 
     data = request.get_json()
-
     email = data.get("email")
     otp = data.get("otp")
 
@@ -140,7 +135,6 @@ def verify_otp():
         return jsonify({"error": "Email and OTP are required"}), 400
 
     key = f"otp:{email}"
-
     stored_otp = r.get(key)
 
     if not stored_otp:
@@ -165,9 +159,3 @@ def verify_otp():
         "message": "OTP verified successfully"
     }), 200
 
-if __name__ == '__main__':
-    try:
-        gmail_service()
-    except Exception:
-        pass
-    app.run(host='0.0.0.0', port=5001, debug=True)
