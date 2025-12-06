@@ -51,7 +51,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-
+*secret*.*
 # Virtual environments
 venv/
 env/
@@ -95,7 +95,7 @@ coverage.xml
 # Precompiled headers
 *.gch
 *.pch
-
+token.json
 # Libraries
 *.lib
 *.a
