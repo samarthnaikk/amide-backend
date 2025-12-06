@@ -1,0 +1,189 @@
+# --------------------------
+# macOS
+# --------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+.DS_Store?
+.Spotlight-V100
+.Trashes
+Icon?
+# Thumbnails
+._*
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+# macOS Finder
+/._*
+
+# --------------------------
+# Editor & IDE
+# --------------------------
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# --------------------------
+# Python
+# --------------------------
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+venv.bak/
+venv3/
+
+# Pipfile / Poetry
+Pipfile.lock
+poetry.lock
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDE config
+.pyright/
+
+# --------------------------
+# C++
+# --------------------------
+# Compiled object files
+*.o
+*.obj
+*.lo
+*.la
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.la?
+*.lo
+*.def
+
+# Shared objects
+*.so
+*.dylib
+*.dll
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+CMakeLists.txt.user
+CMakeLists.txt.user.*
+
+# Qt Creator
+*.pro.user
+*.user
+
+# Visual Studio
+*.vcxproj*
+*.sln
+*.suo
+*.user
+*.userosscache
+*.userprefs
+
+# Build directories
+build/
+_make/
+cmake-build-*/
+
+# --------------------------
+# Go
+# --------------------------
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, coverage and vendor
+*.test
+.coverage.out
+vendor/
+
+# Module cache
+pkg/mod/
+
+# Goland IDE
+.idea/
+
+# --------------------------
+# Node / Frontend
+# --------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# --------------------------
+# Logs and temporary files
+# --------------------------
+logs/
+*.log
+*.tmp
+*.temp
+*.cache
+
+# --------------------------
+# Secrets
+# --------------------------
+.env
+.env.*
+secret-*.json
+
+# End of file
