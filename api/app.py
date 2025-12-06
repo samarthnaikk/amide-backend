@@ -2,7 +2,9 @@ from flask import Flask, request, jsonify
 import random
 import base64
 from email.mime.text import MIMEText
-
+from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
+from email.mime.text import MIMEText
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -31,26 +33,37 @@ def gmail_service():
 
     return build('gmail', 'v1', credentials=creds)
 
-
 def send_otp_email(to_email, otp):
-    """Send OTP using Gmail API."""
     service = gmail_service()
+    subject = "amide Signup OTP Code"
 
-    subject = "Your Signup OTP Code"
-    body = f"Your OTP is: {otp}\n\nIt expires in 5 minutes."
+    template_file = "templates/otp_email_light.html"
+    try:
+        with open(template_file, "r") as f:
+            html_template = f.read()
+    except Exception:
+        html_template = f"<html><body><h2>amide OTP</h2><p>Your OTP: <b>{otp}</b></p></body></html>"
 
-    msg = MIMEText(body)
+    html_body = html_template.replace("{{ otp }}", otp)
+
+    msg = MIMEMultipart("related")
     msg['to'] = to_email
     msg['subject'] = subject
 
+    html_part = MIMEText(html_body, "html")
+    msg.attach(html_part)
+
+    try:
+        with open("static/logo.png", "rb") as img:
+            mime_img = MIMEImage(img.read())
+            mime_img.add_header("Content-ID", "<logo.png>")
+            msg.attach(mime_img)
+    except:
+        pass
+
     raw_msg = base64.urlsafe_b64encode(msg.as_bytes()).decode()
-
-    message = {
-        'raw': raw_msg
-    }
-
+    message = {'raw': raw_msg}
     service.users().messages().send(userId="me", body=message).execute()
-
 
 @app.route('/signup', methods=['POST'])
 def signup():
