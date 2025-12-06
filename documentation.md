@@ -84,7 +84,8 @@ Content-Type: application/json
 
 {
     "email": "user@example.com",
-    "otp": "123456"
+    "otp": "123456",
+    "password": "user password"
 }
 ```
 
@@ -118,6 +119,56 @@ Content-Type: application/json
 **Status Codes:**
 - `200 OK` - OTP verified successfully
 - `400 Bad Request` - Invalid OTP, expired OTP, or missing fields
+
+---
+
+### 4. **POST /signin** - Sign in with Email and Password
+**Purpose:** Authenticate users using their email and password
+
+**Request Format:**
+```http
+POST /signin
+Content-Type: application/json
+
+{
+    "email": "user@example.com",
+    "password": "hashed_password"
+}
+```
+
+**Response (Success):**
+```json
+{
+    "success": true
+}
+```
+
+**Response (Failure):**
+```json
+{
+    "success": false
+}
+```
+
+**Response (Missing Fields):**
+```json
+{
+    "error": "Email and password are required"
+}
+```
+
+**Response (Database Error):**
+```json
+{
+    "error": "Database error",
+    "details": "..."
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success or failure
+- `400 Bad Request` - Missing fields
+- `500 Internal Server Error` - Database error
 
 ---
 
