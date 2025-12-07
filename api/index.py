@@ -11,15 +11,21 @@ from dotenv import load_dotenv
 import redis
 import json
 import os
+import requests
+import sys
+from pathlib import Path
 from supabase import create_client, Client
-from flask_cors import CORS 
+from flask_cors import CORS
+
+sys.path.insert(0, str(Path(__file__).parent))
+from helper import generate_key, verify_key
+
+load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-load_dotenv()
 
 r = redis.Redis(
     host=os.getenv("REDIS_HOST"),
@@ -176,6 +182,7 @@ def verify_otp():
             "email": email,
             "password": password
         }).execute()
+        generate_key(email)
     except Exception as e:
         return jsonify({
             "status": "db_error",
@@ -217,3 +224,44 @@ def signin():
 
     except Exception as e:
         return jsonify({"error": "Database error", "details": str(e)}), 500
+
+@app.route('/run_model', methods=['POST'])
+def run_model():
+    if request.content_type != "application/json":
+        return jsonify({'error': 'Content-Type must be application/json'}), 400
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'Authorization header with Bearer token is required'}), 401
+
+    api_key = auth_header.split(' ')[1]
+    email = verify_key(api_key)
+    
+    if not email:
+        return jsonify({'error': 'Invalid API key'}), 401
+
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'Request body is required'}), 400
+
+    try:
+        model_service_url = "https://samarthnaikk-amide-models.hf.space/compute"
+        response = requests.post(model_service_url, json=data)
+        
+        return jsonify({
+            "status": "success",
+            "user_email": email,
+            "model_response": response.json()
+        }), response.status_code
+        
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'error': 'Failed to connect to model service',
+            'details': str(e)
+        }), 503
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'details': str(e)
+        }), 500
