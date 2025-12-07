@@ -247,21 +247,89 @@ def run_model():
 
     try:
         model_service_url = "https://samarthnaikk-amide-models.hf.space/compute"
-        response = requests.post(model_service_url, json=data)
+        response = requests.post(model_service_url, json=data, timeout=30)
         
-        return jsonify({
-            "status": "success",
-            "user_email": email,
-            "model_response": response.json()
-        }), response.status_code
+        if response.status_code == 200:
+            model_response = response.json()
+        else:
+            model_response = {"error": f"Model service returned {response.status_code}", "raw_response": response.text}
+        
+        redis_key = f"model_output:{email}"
+        r.setex(redis_key, 90, json.dumps(model_response))
+        
+        return jsonify({"success": True}), 200
         
     except requests.exceptions.RequestException as e:
-        return jsonify({
-            'error': 'Failed to connect to model service',
-            'details': str(e)
-        }), 503
+        error_response = {"error": f"Failed to connect to model service: {str(e)}"}
+        redis_key = f"model_output:{email}"
+        r.setex(redis_key, 90, json.dumps(error_response))
+        return jsonify({'error': 'Failed to connect to model service'}), 503
+    except Exception as e:
+        error_response = {"error": f"Internal server error: {str(e)}"}
+        redis_key = f"model_output:{email}"
+        try:
+            r.setex(redis_key, 90, json.dumps(error_response))
+        except:
+            pass
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/model_output', methods=['POST'])
+def model_output():
+    if request.content_type != "application/json":
+        return jsonify({'error': 'Content-Type must be application/json'}), 400
+
+    data = request.get_json()
+    email = data.get("email")
+    
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+
+    try:
+        redis_key = f"model_output:{email}"
+        cached_output = r.get(redis_key)
+        
+        if cached_output:
+            return jsonify({
+                "status": "found",
+                "email": email,
+                "output": json.loads(cached_output)
+            }), 200
+        else:
+            return jsonify({
+                "status": "not_found",
+                "message": "Analysis not found"
+            }), 404
+            
     except Exception as e:
         return jsonify({
             'error': 'Internal server error',
             'details': str(e)
         }), 500
+
+@app.route('/debug/redis/<email>', methods=['GET'])
+def debug_redis(email):
+    try:
+        redis_key = f"model_output:{email}"
+        cached_output = r.get(redis_key)
+        ttl = r.ttl(redis_key)
+        
+        if cached_output:
+            return jsonify({
+                "email": email,
+                "redis_key": redis_key,
+                "ttl_seconds": ttl,
+                "data": json.loads(cached_output)
+            }), 200
+        else:
+            return jsonify({
+                "email": email,
+                "redis_key": redis_key,
+                "message": "No data found in Redis"
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
