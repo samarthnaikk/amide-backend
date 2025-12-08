@@ -193,3 +193,4 @@ netinfo
 logs_*
 network_logs.csv
 *_predictions*.csv
+payload.json

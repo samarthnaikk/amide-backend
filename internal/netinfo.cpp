@@ -11,6 +11,7 @@
 #include <fstream>
 #include <vector>
 #include <sstream>
+#include <cstdlib>  // <-- for system()
 
 struct Stats {
     int packetCount = 0;
@@ -158,9 +159,12 @@ int main() {
 
         std::cout << "-----------------------------\n";
 
+        // ******************************************************************
+        // EVERY 1 MINUTE: SAVE CSV → MAKE JSON → SEND CURL
+        // ******************************************************************
         if (std::chrono::duration_cast<std::chrono::seconds>(now - minuteStart).count() >= 60) {
-            std::string filename = "logs_" + nowString() + ".csv";
-            std::ofstream out(filename);
+            std::string csvName = "logs_" + nowString() + ".csv";
+            std::ofstream out(csvName);
 
             out << "timestamp,src_ip,src_port,dst_ip,dst_port,packet_size,tcp_flags,seq,ack,window\n";
 
@@ -178,10 +182,51 @@ int main() {
             }
 
             out.close();
+            std::cout << "Saved 1-minute log to " << csvName << std::endl;
+
+            // --- ADDED: CREATE JSON -----------------------------------------------------
+            std::string jsonName = "payload.json";
+            std::ofstream jout(jsonName);
+
+            jout << "{\n  \"model_type\": \"lightGBM\",\n  \"file\": [\n";
+
+            for (size_t i = 0; i < logBuffer.size(); i++) {
+                auto &e = logBuffer[i];
+                jout << "    {\n"
+                     << "      \"timestamp\": \"" << e.timestamp << "\",\n"
+                     << "      \"src_ip\": \"" << e.src << "\",\n"
+                     << "      \"src_port\": " << e.sport << ",\n"
+                     << "      \"dst_ip\": \"" << e.dst << "\",\n"
+                     << "      \"dst_port\": " << e.dport << ",\n"
+                     << "      \"packet_size\": " << e.packetSize << ",\n"
+                     << "      \"tcp_flags\": " << e.flags << ",\n"
+                     << "      \"seq\": " << e.seq << ",\n"
+                     << "      \"ack\": " << e.ack << ",\n"
+                     << "      \"window\": " << e.window << "\n"
+                     << "    }";
+
+                if (i < logBuffer.size() - 1) jout << ",";
+                jout << "\n";
+            }
+
+            jout << "  ]\n}";
+            jout.close();
+
+            std::cout << "Created JSON file: payload.json\n";
+
+            // --- ADDED: SEND CURL -------------------------------------------------------
+            std::string curlCmd =
+                "curl -X POST \"http://localhost:3000/run_model\" "
+                "-H \"Authorization: Bearer amide_d7618f6a96eb682d566307df1af462636ee1995dfac67b421b732790e5b24711\" "
+                "-H \"Content-Type: application/json\" "
+                "-d @payload.json";
+
+            int result = system(curlCmd.c_str());
+            std::cout << "Curl executed with result: " << result << std::endl;
+
+            // Reset for next minute
             logBuffer.clear();
             minuteStart = now;
-
-            std::cout << "Saved 1-minute log to " << filename << std::endl;
         }
     }
 
