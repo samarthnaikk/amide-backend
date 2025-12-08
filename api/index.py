@@ -15,7 +15,7 @@ import requests
 import sys
 from pathlib import Path
 from supabase import create_client, Client
-from flask_cors import CORS
+from flask_cors import CORS,cross_origin
 
 sys.path.insert(0, str(Path(__file__).parent))
 from helper import generate_key, verify_key
@@ -41,6 +41,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
 @app.route('/', methods=['GET'])
+@cross_origin()
 def home():
     return jsonify({
         'status': 'ok',
@@ -109,6 +110,7 @@ def send_otp_email(to_email, otp):
     service.users().messages().send(userId="me", body=message).execute()
 
 @app.route('/signup', methods=['POST'])
+@cross_origin(origins=["https://am4de.vercel.app","https://am4de.samarthnaikk.me","https://am4de.suyashh.me"], methods=["POST"])
 def signup():
     if request.content_type != "application/json":
         return jsonify({'error': 'Content-Type must be application/json'}), 400
@@ -145,6 +147,7 @@ def signup():
     }), 200
 
 @app.route('/verify_otp', methods=['POST'])
+@cross_origin(origins=["https://am4de.vercel.app","https://am4de.samarthnaikk.me","https://am4de.suyashh.me"], methods=["POST"])
 def verify_otp():
     if request.content_type != "application/json":
         return jsonify({'error': 'Content-Type must be application/json'}), 400
@@ -198,6 +201,7 @@ def verify_otp():
     }), 200
 
 @app.route('/signin', methods=['POST'])
+@cross_origin(origins=["https://am4de.vercel.app","https://am4de.samarthnaikk.me","https://am4de.suyashh.me"], methods=["POST"])
 def signin():
     if request.content_type != "application/json":
         return jsonify({'error': 'Content-Type must be application/json'}), 400
@@ -226,6 +230,7 @@ def signin():
         return jsonify({"error": "Database error", "details": str(e)}), 500
 
 @app.route('/run_model', methods=['POST'])
+@cross_origin()
 def run_model():
     if request.content_type != "application/json":
         return jsonify({'error': 'Content-Type must be application/json'}), 400
@@ -274,6 +279,7 @@ def run_model():
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/model_output', methods=['POST'])
+@cross_origin(origins=["https://am4de.vercel.app","https://am4de.samarthnaikk.me","https://am4de.suyashh.me"], methods=["POST"])
 def model_output():
     if request.content_type != "application/json":
         return jsonify({'error': 'Content-Type must be application/json'}), 400
@@ -307,6 +313,7 @@ def model_output():
         }), 500
 
 @app.route('/debug/redis/<email>', methods=['GET'])
+@cross_origin(origins=["https://am4de.vercel.app","https://am4de.samarthnaikk.me","https://am4de.suyashh.me"], methods=["POST"])
 def debug_redis(email):
     try:
         redis_key = f"model_output:{email}"
