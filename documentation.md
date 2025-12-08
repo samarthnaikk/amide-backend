@@ -218,3 +218,47 @@ GET /
 }
 ```
 
+---
+
+## 6) `POST /model_output` — Retrieve model analysis results
+
+**Purpose**: Retrieve the latest analysis output for a specific model and user from Redis cache.
+
+**Request body (JSON)**:
+
+```json
+{
+  "email": "zzz@gmail.com",
+  "model": "XGM_lstm"
+}
+```
+
+**Response (200 - Success)**
+
+```json
+{
+  "status": "found",
+  "email": "zzz@gmail.com",
+  "model": "XGM_lstm",
+  "output": {
+    "success": true,
+    "output": "Model execution results..."
+  }
+}
+```
+
+**Response (404 - Analysis not found)**
+
+```json
+{
+  "status": "not_found",
+  "message": "Analysis not found"
+}
+```
+
+**Notes**:
+* Results are cached in Redis with a **90-second TTL**.
+* Both `email` and `model` fields are **required**.
+* Call `/run_model` endpoint first to generate the analysis.
+* Cache expires after 90 seconds; subsequent calls will return 404.
+
