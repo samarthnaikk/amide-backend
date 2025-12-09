@@ -188,7 +188,7 @@ int main() {
             std::string jsonName = "payload.json";
             std::ofstream jout(jsonName);
 
-            jout << "{\n  \"model_type\": \"lightGBM\",\n  \"file\": [\n";
+            jout << "{\n  \"file\": [\n";
 
             for (size_t i = 0; i < logBuffer.size(); i++) {
                 auto &e = logBuffer[i];
@@ -223,6 +223,11 @@ int main() {
 
             int result = system(curlCmd.c_str());
             std::cout << "Curl executed with result: " << result << std::endl;
+
+            // --- DELETE FILES AFTER SENDING ---------------------------------------------
+            remove(csvName.c_str());
+            remove(jsonName.c_str());
+            std::cout << "Deleted log files: " << csvName << " and " << jsonName << std::endl;
 
             // Reset for next minute
             logBuffer.clear();
